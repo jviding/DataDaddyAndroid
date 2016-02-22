@@ -3,8 +3,8 @@ package com.example.henri.multicast;
 import android.content.Context;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
+import android.os.Environment;
 import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
 import android.support.v4.view.GestureDetectorCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
@@ -17,19 +17,33 @@ import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
 
-import java.net.Inet4Address;
-import java.net.InetAddress;
+import java.io.File;
 import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity implements RecyclerView.OnItemTouchListener {
 
-    private MultiCastServer server;
-    private ArrayList users = new ArrayList();
+    // Init variables
+    private final String homeDir = "MulticastApp";
+    private final int port = 3003;
+    private final String multicastGroup = "239.1.1.1";
+
+    // Multicast
+    private MulticastService multicastService;
     private WifiManager.MulticastLock multicastLock;
+
+    // ArrayLists
+    private ArrayList users = new ArrayList();
+    private ArrayList files = new ArrayList();
+
+    // View
+    private int viewing;
     private RecyclerView mRecyclerView;
     private RecyclerView.Adapter mAdapter;
     private RecyclerView.LayoutManager mLayoutManager;
     private GestureDetectorCompat mGestureDetector;
+
+    // Files
+    private FileService fileService;
 
     @Override
     protected void onDestroy() {
@@ -46,57 +60,38 @@ public class MainActivity extends AppCompatActivity implements RecyclerView.OnIt
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-        // View
-        mRecyclerView = (RecyclerView) findViewById(R.id.my_recycler_view);
-        mGestureDetector = new GestureDetectorCompat(this, new GestureDetector.SimpleOnGestureListener() {
-            @Override
-            public boolean onSingleTapConfirmed(MotionEvent e) {
-                View view = mRecyclerView.findChildViewUnder(e.getX(), e.getY());
-                int adapterPosition = mRecyclerView.getChildAdapterPosition(view);
-                Log.d("Join", users.get(adapterPosition).toString());
-                return super.onSingleTapConfirmed(e);
-            }
-        });
-        mRecyclerView.addOnItemTouchListener(this);
-        // use this setting to improve performance if you know that changes
-        // in content do not change the layout size of the RecyclerView
-        mRecyclerView.setHasFixedSize(true);
-        // use a linear layout manager
-        mLayoutManager = new LinearLayoutManager(this);
-        mRecyclerView.setLayoutManager(mLayoutManager);
-        // specify an adapter (see also next example)
-        mAdapter = new UsersAdapter(users);
-        mRecyclerView.setAdapter(mAdapter);
-        // Acquire multicast lock
         WifiManager wifi = (WifiManager) getSystemService(Context.WIFI_SERVICE);
-        multicastLock = wifi.createMulticastLock("multicastLock");
-        multicastLock.setReferenceCounted(true);
-        multicastLock.acquire();
-        // start server thread
-        Log.d("Join", "Starting new server...");
-        server = new MultiCastServer(new MultiCastServer.ItemAdded() {
-            @Override
-            public void itemAdded(final InetAddress address) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (!users.contains(address)) {
-                            users.add(address);
-                            mAdapter.notifyItemInserted(users.size() - 1);
-                        }
-                    }
-                });
-            }
-        });
-        server.start();
-        Log.d("Join", "Server started");
-        server.join();
+
+        // TEST DATA
+        // list IP addresses
+        users.add("123.1.1.1");
+        users.add("123.1.1.2");
+        users.add("123.1.1.3");
+        users.add("123.1.1.4");
+        users.add("123.1.1.5");
+
+        // FILE MANAGER
+        fileService = new FileService(homeDir);
+
+        // VIEW
+        setUpRecyclerView();
+        setListView(users);
+        // view ip addresses
+        viewing = 0;
+
+        // MULTICAST
+        startMulticast(wifi);
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                server.join();
+                multicastService.join();
+                Log.d("View", "Button pressed");
+
+                files = fileService.createFileView(Environment.getExternalStorageDirectory()+File.separator+homeDir);
+                viewing = 1;
+                setListView(files);
             }
         });
     }
@@ -137,5 +132,54 @@ public class MainActivity extends AppCompatActivity implements RecyclerView.OnIt
     @Override
     public void onRequestDisallowInterceptTouchEvent(boolean disallowIntercept) {
 
+    }
+
+    public void setListView(ArrayList<String> list) {
+        mAdapter = new ListAdapter(list);
+        mRecyclerView.setAdapter(mAdapter);
+    }
+
+    public void setUpRecyclerView() {
+        mRecyclerView = (RecyclerView) findViewById(R.id.my_recycler_view);
+        mGestureDetector = new GestureDetectorCompat(this, new GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public boolean onSingleTapConfirmed(MotionEvent e) {
+                View view = mRecyclerView.findChildViewUnder(e.getX(), e.getY());
+                int adapterPosition = mRecyclerView.getChildAdapterPosition(view);
+                if (viewing == 0) {
+                    Log.d("View", users.get(adapterPosition).toString());
+                } else {
+                    Log.d("View", files.get(adapterPosition).toString());
+                }
+                return super.onSingleTapConfirmed(e);
+            }
+        });
+        mRecyclerView.addOnItemTouchListener(this);
+        // use this setting to improve performance if you know that changes
+        // in content do not change the layout size of the RecyclerView
+        mRecyclerView.setHasFixedSize(true);
+        // use a linear layout manager
+        mLayoutManager = new LinearLayoutManager(this);
+        mRecyclerView.setLayoutManager(mLayoutManager);
+    }
+
+    public void startMulticast(WifiManager wifi) {
+        multicastService = new MulticastService(multicastGroup, port, new MulticastService.ItemAdded() {
+            @Override
+            public void itemAdded(final String address) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (!users.contains(address)) {
+                            users.add(address);
+                            if (viewing == 0) {
+                                mAdapter.notifyItemInserted(users.size() - 1);
+                            }
+                        }
+                    }
+                });
+            }
+        });
+        multicastLock = multicastService.start(wifi);
     }
 }

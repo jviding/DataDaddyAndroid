@@ -12,20 +12,21 @@ import java.util.ArrayList;
 /**
  * Created by Jasu on 20.2.2016.
  */
-public class MultiCastServer {
+public class MulticastServer {
 
     MulticastSocket socket;
     Thread thread;
-    int port = 3003;
-    ArrayList list;
-    private final ItemAdded itemAdded;
-    private final String multicastGroup = "239.1.1.1";
+    private final int port;
+    private final String multicastGroup;
 
+    private final ItemAdded itemAdded;
     public interface ItemAdded {
-        void itemAdded(InetAddress addr);
+        void itemAdded(String addr);
     }
 
-    MultiCastServer(ItemAdded itemAdded) {
+    MulticastServer(int port, String multicastGroup, ItemAdded itemAdded) {
+        this.port = port;
+        this.multicastGroup = multicastGroup;
         this.itemAdded = itemAdded;
         try {
             socket = new MulticastSocket(port);
@@ -96,7 +97,7 @@ public class MultiCastServer {
             e.printStackTrace();
         }
         // Store sender to arrayList
-        itemAdded.itemAdded(packet.getAddress());
+        itemAdded.itemAdded(packet.getAddress().toString());
     }
 
     private void respond(InetAddress addr) {

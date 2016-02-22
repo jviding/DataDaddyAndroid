@@ -2,22 +2,18 @@ package com.example.henri.multicast;
 
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
-import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-import org.w3c.dom.Text;
-
-import java.net.InetAddress;
 import java.util.ArrayList;
 
 /**
  * Created by Jasu on 20.2.2016.
  */
-public class UsersAdapter extends RecyclerView.Adapter<UsersAdapter.ViewHolder>{
-    private final ArrayList<InetAddress> mDataset;
+public class ListAdapter extends RecyclerView.Adapter<ListAdapter.ViewHolder>{
+    private final ArrayList<String> mDataset;
 
-    public UsersAdapter(ArrayList<InetAddress> myDataset) {
+    public ListAdapter(ArrayList<String> myDataset) {
         mDataset = myDataset;
     }
 
@@ -36,7 +32,7 @@ public class UsersAdapter extends RecyclerView.Adapter<UsersAdapter.ViewHolder>{
     public void onBindViewHolder(ViewHolder holder, int position) {
         // - get element from your dataset at this position
         // - replace the contents of the view with that element
-        holder.mTextView.setText(mDataset.get(position).toString());
+        holder.mTextView.setText(mDataset.get(position));
     }
 
     @Override
