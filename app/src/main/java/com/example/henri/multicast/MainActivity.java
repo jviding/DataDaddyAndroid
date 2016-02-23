@@ -156,7 +156,7 @@ public class MainActivity extends AppCompatActivity implements RecyclerView.OnIt
                     updateUsersView(view, adapterPosition);
                     updateTitleBarUsers();
                 } else if (filesBtns.isActivated()) {
-                    fileOrDirClicked(view, adapterPosition, path + File.separator + files.get(adapterPosition).toString());
+                    fileOrDirClicked(view, adapterPosition, files.get(adapterPosition).toString());
                     updateTitleBarFiles();
                 }
                 return super.onSingleTapConfirmed(e);
@@ -170,7 +170,7 @@ public class MainActivity extends AppCompatActivity implements RecyclerView.OnIt
 
     /* Set view with selected files */
     public void setActiveFiles() {
-        Log.d("count", mAdapter.getItemCount()+"");
+        Log.d("count", mAdapter.getItemCount() + "");
 
         for (int i=0; i < mAdapter.getItemCount(); i++) {
             View v = (View) mRecyclerView.findViewHolderForAdapterPosition(0).itemView;
@@ -181,11 +181,12 @@ public class MainActivity extends AppCompatActivity implements RecyclerView.OnIt
 
     /* Replace the list currently displayed with a new one */
     public void setListView(ArrayList<String> list) {
-        mAdapter = new ListAdapter(list);
+        if (filesBtns.isActivated()) {
+            mAdapter = new ListAdapter(list, selectedFiles);
+        } else {
+            mAdapter = new ListAdapter(list, null);
+        }
         mRecyclerView.setAdapter(mAdapter);
-        /*if (filesBtns.isActivated()) {
-            setActiveFiles();
-        }*/
     }
 
     // RECYCLER VIEW
@@ -319,9 +320,13 @@ public class MainActivity extends AppCompatActivity implements RecyclerView.OnIt
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                path = fileService.pathOneStepDown(path);
-                files = fileService.createFileView(path);
-                setListView(files);
+                if (path.equals("") || path.equals(File.separator)) {
+                    resetView();
+                } else {
+                    path = fileService.pathOneStepDown(path);
+                    files = fileService.createFileView(path);
+                    setListView(files);
+                }
             }
         });
     }

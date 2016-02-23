@@ -36,12 +36,12 @@ public class FileService {
         File file[] = f.listFiles();
         for (int i=0; i<file.length; i++) {
             if (file[i].isDirectory()) {
-                files.add(file[i].getName());
+                files.add(path+File.separator+file[i].getName());
             }
         }
         for (int a=0; a<file.length; a++) {
             if (!file[a].isDirectory()) {
-                files.add(file[a].getName());
+                files.add(path+File.separator+file[a].getName());
             }
         }
         return files;

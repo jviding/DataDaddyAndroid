@@ -26,6 +26,7 @@ dependencies {
     testCompile 'org.powermock:powermock-core:1.6.2'
     testCompile 'org.powermock:powermock-api-easymock:1.6.2'
     testCompile 'org.powermock:powermock-module-junit4:1.6.2'
+    testCompile 'org.powermock:powermock-api-mockito:1.6.4'
     androidTestCompile 'com.android.support:support-annotations:23.0.1'
     androidTestCompile 'com.android.support.test:runner:0.4.1'
     androidTestCompile 'com.android.support.test:rules:0.4.1'
