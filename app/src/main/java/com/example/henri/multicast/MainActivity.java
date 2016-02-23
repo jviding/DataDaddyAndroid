@@ -1,6 +1,7 @@
 package com.example.henri.multicast;
 
 import android.content.Context;
+import android.graphics.Color;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.Environment;
@@ -16,8 +17,11 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.LinearLayout;
 
 import java.io.File;
+import java.lang.reflect.Array;
+import java.net.InetAddress;
 import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity implements RecyclerView.OnItemTouchListener {
@@ -27,6 +31,11 @@ public class MainActivity extends AppCompatActivity implements RecyclerView.OnIt
     private final int port = 3003;
     private final String multicastGroup = "239.1.1.1";
 
+    // Helper variables
+    private String path;
+    private ArrayList<String> selectedUsers;
+    private ArrayList<String> selectedFiles;
+
     // Multicast
     private MulticastService multicastService;
     private WifiManager.MulticastLock multicastLock;
@@ -35,12 +44,15 @@ public class MainActivity extends AppCompatActivity implements RecyclerView.OnIt
     private ArrayList users = new ArrayList();
     private ArrayList files = new ArrayList();
 
-    // View
-    private int viewing;
+    // Recycler View
     private RecyclerView mRecyclerView;
     private RecyclerView.Adapter mAdapter;
     private RecyclerView.LayoutManager mLayoutManager;
     private GestureDetectorCompat mGestureDetector;
+
+    // Button groups
+    private LinearLayout usersBtns;
+    private LinearLayout filesBtns;
 
     // Files
     private FileService fileService;
@@ -70,30 +82,36 @@ public class MainActivity extends AppCompatActivity implements RecyclerView.OnIt
         users.add("123.1.1.4");
         users.add("123.1.1.5");
 
-        // FILE MANAGER
-        fileService = new FileService(homeDir);
+        // INIT
+        selectedUsers = new ArrayList<String>();
+        selectedFiles = new ArrayList<String>();
 
-        // VIEW
-        setUpRecyclerView();
-        setListView(users);
-        // view ip addresses
-        viewing = 0;
+        // FILE MANAGER
+        path = "";
+        fileService = new FileService(homeDir);
+        files = fileService.createFileView(path);
 
         // MULTICAST
         startMulticast(wifi);
 
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                multicastService.join();
-                Log.d("View", "Button pressed");
+        // BUTTONS
+        FloatingActionButton btnBack = (FloatingActionButton) findViewById(R.id.btn_back);
+        FloatingActionButton btnSend = (FloatingActionButton) findViewById(R.id.btn_send);
+        FloatingActionButton btnAddF = (FloatingActionButton) findViewById(R.id.btn_add_files);
+        FloatingActionButton btnRefr = (FloatingActionButton) findViewById(R.id.btn_refresh);
+        setBtnBack(btnBack);
+        setBtnSend(btnSend);
+        setBtnAddF(btnAddF);
+        setBtnRefr(btnRefr);
+        usersBtns = (LinearLayout) findViewById(R.id.users_btns);
+        usersBtns.setActivated(true);
+        filesBtns = (LinearLayout) findViewById(R.id.files_btns);
+        filesBtns.setActivated(false);
+        filesBtns.setVisibility(filesBtns.GONE);
 
-                files = fileService.createFileView(Environment.getExternalStorageDirectory()+File.separator+homeDir);
-                viewing = 1;
-                setListView(files);
-            }
-        });
+        // VIEW
+        setUpRecyclerView();
+        setListView(users);
     }
 
     @Override
@@ -105,16 +123,10 @@ public class MainActivity extends AppCompatActivity implements RecyclerView.OnIt
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
             return true;
         }
-
         return super.onOptionsItemSelected(item);
     }
 
@@ -125,45 +137,139 @@ public class MainActivity extends AppCompatActivity implements RecyclerView.OnIt
     }
 
     @Override
-    public void onTouchEvent(RecyclerView rv, MotionEvent e) {
-
-    }
+    public void onTouchEvent(RecyclerView rv, MotionEvent e) {}
 
     @Override
-    public void onRequestDisallowInterceptTouchEvent(boolean disallowIntercept) {
+    public void onRequestDisallowInterceptTouchEvent(boolean disallowIntercept) {}
 
-    }
+    // RECYCLER VIEW SETUP
 
-    public void setListView(ArrayList<String> list) {
-        mAdapter = new ListAdapter(list);
-        mRecyclerView.setAdapter(mAdapter);
-    }
-
-    public void setUpRecyclerView() {
+    /* Set recycler view up */
+    private void setUpRecyclerView() {
         mRecyclerView = (RecyclerView) findViewById(R.id.my_recycler_view);
         mGestureDetector = new GestureDetectorCompat(this, new GestureDetector.SimpleOnGestureListener() {
             @Override
             public boolean onSingleTapConfirmed(MotionEvent e) {
                 View view = mRecyclerView.findChildViewUnder(e.getX(), e.getY());
                 int adapterPosition = mRecyclerView.getChildAdapterPosition(view);
-                if (viewing == 0) {
-                    Log.d("View", users.get(adapterPosition).toString());
-                } else {
-                    Log.d("View", files.get(adapterPosition).toString());
+                if (usersBtns.isActivated()) {
+                    updateUsersView(view, adapterPosition);
+                    updateTitleBarUsers();
+                } else if (filesBtns.isActivated()) {
+                    fileOrDirClicked(view, adapterPosition, path + File.separator + files.get(adapterPosition).toString());
+                    updateTitleBarFiles();
                 }
                 return super.onSingleTapConfirmed(e);
             }
         });
         mRecyclerView.addOnItemTouchListener(this);
-        // use this setting to improve performance if you know that changes
-        // in content do not change the layout size of the RecyclerView
-        mRecyclerView.setHasFixedSize(true);
-        // use a linear layout manager
-        mLayoutManager = new LinearLayoutManager(this);
+        mRecyclerView.setHasFixedSize(true); // improves performance
+        mLayoutManager = new LinearLayoutManager(this); // using linear layout manager
         mRecyclerView.setLayoutManager(mLayoutManager);
     }
 
-    public void startMulticast(WifiManager wifi) {
+    /* Set view with selected files */
+    public void setActiveFiles() {
+        Log.d("count", mAdapter.getItemCount()+"");
+
+        for (int i=0; i < mAdapter.getItemCount(); i++) {
+            View v = (View) mRecyclerView.findViewHolderForAdapterPosition(0).itemView;
+            v.setBackgroundColor(Color.GRAY);
+            Log.d("Löyty: ", v.toString());
+        }
+    }
+
+    /* Replace the list currently displayed with a new one */
+    public void setListView(ArrayList<String> list) {
+        mAdapter = new ListAdapter(list);
+        mRecyclerView.setAdapter(mAdapter);
+        /*if (filesBtns.isActivated()) {
+            setActiveFiles();
+        }*/
+    }
+
+    // RECYCLER VIEW
+
+    /* Update recycler view of users */
+    private void updateUsersView(View view, int adapterPosition) {
+        if (view.isActivated()) {
+            view.setActivated(false);
+            view.setBackgroundColor(Color.TRANSPARENT);
+            selectedUsers.remove(users.get(adapterPosition).toString());
+
+        } else {
+            view.setActivated(true);
+            view.setBackgroundColor(Color.GRAY);
+            selectedUsers.add(users.get(adapterPosition).toString());
+        }
+    }
+
+    /* Check if dir or file is clicked and perform respectively */
+    private void fileOrDirClicked(View view, int adapterPosition, String pathToClicked) {
+        if (fileService.checkIfDir(pathToClicked)) {
+            path = pathToClicked;
+            files = fileService.createFileView(path);
+            setListView(files);
+        } else {
+            updateFileView(view, adapterPosition, pathToClicked);
+        }
+    }
+
+    /* Update recycler view of files */
+    private void updateFileView(View view, int adapterPosition, String pathToFile) {
+        if (view.isActivated()) {
+            view.setActivated(false);
+            view.setBackgroundColor(Color.TRANSPARENT);
+            selectedFiles.remove(pathToFile);
+        } else {
+            view.setActivated(true);
+            view.setBackgroundColor(Color.GRAY);
+            selectedFiles.add(pathToFile);
+        }
+    }
+
+    private void resetView() {
+        setListView(users);
+        path = "";
+        files = fileService.createFileView(path);
+        usersBtns.setVisibility(usersBtns.VISIBLE);
+        filesBtns.setVisibility(filesBtns.GONE);
+        usersBtns.setActivated(true);
+        filesBtns.setActivated(false);
+        selectedFiles.clear();
+        selectedUsers.clear();
+        setTitle(getResources().getString(R.string.app_name));
+    }
+
+    // TITLE UPDATES
+
+    /* Update title users part*/
+    private void updateTitleBarUsers() {
+        if (selectedUsers.size() == 1) {
+            setTitle("Send to: " + selectedUsers.get(0));
+        } else if (selectedUsers.size() == users.size()) {
+            setTitle("Send to: All");
+        } else if (selectedUsers.size() == 0) {
+            setTitle(R.string.app_name);
+        } else {
+            setTitle("Send to: " + selectedUsers.size() + " users");
+        }
+    }
+
+    /* Update title files part */
+    private void updateTitleBarFiles() {
+        updateTitleBarUsers();
+        if (selectedFiles.size() == 1) {
+            setTitle(getTitle() + " - " + selectedFiles.size() + " file");
+        } else {
+            setTitle(getTitle() + " - " + selectedFiles.size() + " files");
+        }
+    }
+
+    // MULTICAST
+
+    /* Start multicast server */
+    private void startMulticast(WifiManager wifi) {
         multicastService = new MulticastService(multicastGroup, port, new MulticastService.ItemAdded() {
             @Override
             public void itemAdded(final String address) {
@@ -172,7 +278,7 @@ public class MainActivity extends AppCompatActivity implements RecyclerView.OnIt
                     public void run() {
                         if (!users.contains(address)) {
                             users.add(address);
-                            if (viewing == 0) {
+                            if (usersBtns.isActivated()) {
                                 mAdapter.notifyItemInserted(users.size() - 1);
                             }
                         }
@@ -181,5 +287,58 @@ public class MainActivity extends AppCompatActivity implements RecyclerView.OnIt
             }
         });
         multicastLock = multicastService.start(wifi);
+    }
+
+    // BUTTONS
+
+    /* Configure Send button */
+    private void setBtnSend(FloatingActionButton fab) {
+        fab.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (selectedFiles.size() > 0) {
+                    Log.d("Send", "Sending " + selectedFiles.toString() + "\nTo " + selectedUsers.toString());
+                    resetView();
+                }
+            }
+        });
+    }
+
+    /* Configure Refresh button */
+    private void setBtnRefr(FloatingActionButton fab) {
+        fab.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                multicastService.join();
+            }
+        });
+    }
+
+    /* Configure Back button*/
+    private void setBtnBack(FloatingActionButton fab) {
+        fab.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                path = fileService.pathOneStepDown(path);
+                files = fileService.createFileView(path);
+                setListView(files);
+            }
+        });
+    }
+
+    /* Configure Add Files button*/
+    private void setBtnAddF(FloatingActionButton fab) {
+        fab.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (selectedUsers.size() > 0) {
+                    usersBtns.setVisibility(usersBtns.GONE);
+                    filesBtns.setVisibility(filesBtns.VISIBLE);
+                    usersBtns.setActivated(false);
+                    filesBtns.setActivated(true);
+                    setListView(files);
+                }
+            }
+        });
     }
 }
