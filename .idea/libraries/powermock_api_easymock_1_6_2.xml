@@ -4,6 +4,8 @@
       <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.powermock/powermock-api-easymock/1.6.2/addd25742ac9fe3e0491cbd68e2515e3b06c77fd/powermock-api-easymock-1.6.2.jar!/" />
     </CLASSES>
     <JAVADOC />
-    <SOURCES />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.powermock/powermock-api-easymock/1.6.2/e8572b697da82de7d1f88b002494c14ee26689b5/powermock-api-easymock-1.6.2-sources.jar!/" />
+    </SOURCES>
   </library>
 </component>

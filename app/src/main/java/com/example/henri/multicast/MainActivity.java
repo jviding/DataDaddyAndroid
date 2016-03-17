@@ -20,9 +20,12 @@ import android.view.MenuItem;
 import android.widget.LinearLayout;
 
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Array;
 import java.net.InetAddress;
 import java.util.ArrayList;
+
+import fi.iki.elonen.ServerRunner;
 
 public class MainActivity extends AppCompatActivity implements RecyclerView.OnItemTouchListener {
 
@@ -30,6 +33,7 @@ public class MainActivity extends AppCompatActivity implements RecyclerView.OnIt
     private final String homeDir = "MulticastApp";
     private final int port = 3003;
     private final String multicastGroup = "239.1.1.1";
+    private final int httpPort = 8080;
 
     // Helper variables
     private String path;
@@ -56,6 +60,9 @@ public class MainActivity extends AppCompatActivity implements RecyclerView.OnIt
 
     // Files
     private FileService fileService;
+
+    // HTTP Server
+    private HttpServer http;
 
     @Override
     protected void onDestroy() {
@@ -90,6 +97,14 @@ public class MainActivity extends AppCompatActivity implements RecyclerView.OnIt
         path = "";
         fileService = new FileService(homeDir);
         files = fileService.createFileView(path);
+
+        // HTTP SERVER
+        try {
+            http = new HttpServer(httpPort);
+            http.start();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         // MULTICAST
         startMulticast(wifi);
@@ -175,7 +190,6 @@ public class MainActivity extends AppCompatActivity implements RecyclerView.OnIt
         for (int i=0; i < mAdapter.getItemCount(); i++) {
             View v = (View) mRecyclerView.findViewHolderForAdapterPosition(0).itemView;
             v.setBackgroundColor(Color.GRAY);
-            Log.d("Löyty: ", v.toString());
         }
     }
 
@@ -299,6 +313,7 @@ public class MainActivity extends AppCompatActivity implements RecyclerView.OnIt
             public void onClick(View view) {
                 if (selectedFiles.size() > 0) {
                     Log.d("Send", "Sending " + selectedFiles.toString() + "\nTo " + selectedUsers.toString());
+                    http.SendFilesWithPut(selectedUsers, selectedFiles);
                     resetView();
                 }
             }

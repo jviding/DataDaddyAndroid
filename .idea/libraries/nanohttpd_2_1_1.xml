@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="nanohttpd-2.1.1">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.nanohttpd/nanohttpd/2.1.1/82595b0b3190c8bdd988f307346e6edec9c09b72/nanohttpd-2.1.1.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.nanohttpd/nanohttpd/2.1.1/fea08220ca0872e29ce4fb5078ba457bfb6690e8/nanohttpd-2.1.1-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

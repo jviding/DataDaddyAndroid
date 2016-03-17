@@ -65,6 +65,7 @@ public class MulticastServer {
     }
 
     public void join() {
+        Log.d("Join","Joining Multicast Group.");
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -73,6 +74,7 @@ public class MulticastServer {
                 joinMsg[0] = 1;
                 try {
                     socket.send(new DatagramPacket(joinMsg, joinMsg.length, InetAddress.getByName(multicastGroup), port));
+                    Log.d("Join", "Finding users.");
                 } catch (UnknownHostException e) {
                     e.printStackTrace();
                 } catch (IOException e) {
@@ -91,7 +93,7 @@ public class MulticastServer {
             socket.receive(packet);
             if (packet.getData()[0] == 1) {
                 respond(packet.getAddress());
-                Log.d("Join", "new user joined");
+                Log.d("Join", "A new user has joined.");
             }
         } catch (IOException e) {
             e.printStackTrace();
