@@ -5,6 +5,8 @@ import android.net.wifi.WifiManager;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 
+import java.util.ArrayList;
+
 /**
  * Created by Jasu on 21.2.2016.
  */
@@ -16,14 +18,17 @@ public class MulticastService extends AppCompatActivity {
     private final String multicastGroup;
     private final int port;
 
-    private final ItemAdded itemAdded;
+    private ItemAdded itemAdded;
     public interface ItemAdded {
         void itemAdded(String addr);
     }
 
-    public MulticastService(final String multicastGroup, final int port, ItemAdded itemAdded) {
+    public MulticastService(final String multicastGroup, final int port) {
         this.multicastGroup = multicastGroup;
         this.port = port;
+    }
+
+    public void setCallbackForNewUser(ItemAdded itemAdded) {
         this.itemAdded = itemAdded;
     }
 
@@ -31,20 +36,11 @@ public class MulticastService extends AppCompatActivity {
         multicastLock = wifi.createMulticastLock("multicastLock");
         multicastLock.setReferenceCounted(true);
         multicastLock.acquire();
-
-        // Start server thread
-        startServer();
-        Log.d("Server", "Server started");
-
-        // Join multicast group
-        join();
-        Log.d("Server", "Joined multicast group");
-
         return multicastLock;
     }
 
-    private void startServer() {
-        Log.d("Server", "Starting server...");
+    public void startServer() {
+        Log.d("MULTICAST", "Starting server...");
         server = new MulticastServer(port, multicastGroup, new MulticastServer.ItemAdded() {
             @Override
             public void itemAdded(final String address) {
@@ -52,9 +48,12 @@ public class MulticastService extends AppCompatActivity {
             }
         });
         server.start();
+        Log.d("MULTICAST", "Server started");
+        join();
     }
 
     public void join() {
         server.join();
+        Log.d("MULTICAST", "Joined multicast group");
     }
 }
